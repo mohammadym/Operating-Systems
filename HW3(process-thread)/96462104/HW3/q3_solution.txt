@@ -1,0 +1,3 @@
+1-processors are added for increasing server response power otherwise threads are created of a single
+2- processors are executed simultaneously otherwise threads of a process are executed simltaneously
+3-every process owned a seprate address space otherwise a common address space is shared by all the threads

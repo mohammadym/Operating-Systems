@@ -1,0 +1,32 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OS_HW4_Report</title>
+  <link rel="stylesheet" href="https://stackedit.io/style.css" />
+</head>
+
+<body class="stackedit">
+  <div class="stackedit__html"><p>Sina Shabani Kumeleh - 97521351</p>
+<h2 id="cross-memory-attach-vs-other-ipc-methods">Cross Memory Attach VS other IPC methods</h2>
+<p>Pipes and shared memory live on the kernel and are managed by the kernel. But in CMA after you transferred required addresses with one of the traditional IPC methods i.e. pipes, you can directly transfer data to other processes that have the required address in user space without the help of kernel.</p>
+<h2 id="the-safety-of-the-pipe-mechanism">The safety of the pipe mechanism</h2>
+<p>According to the man page <a href="https://man7.org/linux/man-pages/man7/pipe.7.html">pipe(7)</a> as long as you write less than <strong>PIPE_BUF</strong> the atomicity of the read and write operations are guaranteed. But the overall safety depends on the number of bytes we’re trying to read or write, the file descriptor working in a nonblocking fashion or not, and the count of the writers. Now we go over four possible scenarios.</p>
+<ol>
+<li><strong>O_NONBLOCK</strong> disabled, <em>n</em> &lt;= <strong>PIPE_BUF</strong><br>
+<em>n</em> bytes are written atomically. and if the pipe is full, having data from other writes maybe, the write will block and write the rest after there is enough room in the pipe.</li>
+<li><strong>O_NONBLOCK</strong> enabled, <em>n</em> &lt;= <strong>PIPE_BUF</strong><br>
+this is safe like the last one. If there is room in the pipe <em>n</em> bytes are written, if not, write will fail with errno being <strong>EAGAIN</strong> which means that resource is not available at this moment.</li>
+<li><strong>O_NONBLOCK</strong> disabled, <em>n</em> &gt; <strong>PIPE_BUF</strong><br>
+<em>n</em> is bigger than <strong>PIPE_BUFF</strong> so the write is not atomic and data may be “interleaved” by other processes performing the write operation. this means that it’s not safe this way.</li>
+<li><strong>O_NONBLOCK</strong> enabled, <em>n</em> &gt; <strong>PIPE_BUF</strong><br>
+if the pipe is full write fails like the second scenario, setting errno to <strong>EAGAIN</strong> otherwise, 1 to n bytes may be written so we have to keep track of the return value from write to check bytes written. This is not safe also and data may get corrupted by other processes performing the write operation.</li>
+</ol>
+<h2 id="sharing-pthread_mutex-between-processes">Sharing pthread_mutex between processes</h2>
+<p>The short answer is yes, you can use mutexes between threads of multiple processes. But for the long answer, your mutex needs to be in the memory shared with other processes and it needs to be initialized in a way to allow other processes accessing the lock. For this to work all mutexes must use <strong>PTHREAD_PROCESS_SHARED</strong> attribute as said in <a href="https://man7.org/linux/man-pages/man3/pthread_mutexattr_setpshared.3.html">pthread_mutexattr_setpshared(3)</a>. With this attribute any thread that has access to the shared memory can acquire or release the lock. But it cannot work like a semaphore because only the owner of a lock can unlock it. There is a type of mutex called <strong>Recursive Mutex</strong> that has a count like semaphores but it’s only for one thread. This means that if a thread locks a mutex and the type is <strong>Recursive</strong> ( you can set the type by setting the attribute), the same thread can lock it again and again without resulting in a deadlock. However, this is a bad practice because you are using a lock to keep your data safe and while you have acquired the lock why the heck you want to lock it again?! looks to me like you designed your code poorly and need to rethink your design.</p>
+</div>
+</body>
+
+</html>
